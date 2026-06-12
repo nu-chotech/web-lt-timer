@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <rect width="100%" height="100%" fill="#0b1220" />
+  <rect x="60" y="60" width="1080" height="580" rx="20" fill="#0f1724" stroke="#ffffff10" />
+  <text x="120" y="150" fill="#9aa7b6" font-family="Arial, Helvetica, sans-serif" font-size="20">LT Timer</text>
+  <text x="120" y="320" fill="#ffffff" font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-size="160" font-weight="700">5:00</text>
+  <text x="120" y="420" fill="#cbd5e1" font-family="Arial, Helvetica, sans-serif" font-size="20">残り 300 秒</text>
+  <g transform="translate(900,80)">
+    <rect x="0" y="0" width="160" height="44" rx="22" fill="#ffffff16" />
+    <text x="80" y="30" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="14" text-anchor="middle">設定</text>
+  </g>
+  <g transform="translate(120,480)">
+    <rect x="0" y="0" width="360" height="80" rx="12" fill="#ffffff08" />
+    <text x="20" y="30" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="14">プリセット: 3分 / 5分 / 10分</text>
+    <text x="20" y="55" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="14">メッセージ入力: コメントを入力...</text>
+  </g>
+</svg>

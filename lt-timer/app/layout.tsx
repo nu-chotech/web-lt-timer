@@ -22,11 +22,11 @@ export default function RootLayout({// ルートレイアウトコンポーネ�
 }: Readonly<{// propsの型を定義
   children: React.ReactNode;// childrenはReactのノード（要素、文字列、フラグメントなど）であることを指定
 }>) {
+  // フォントのCSS変数をクラスに追加して、全体で使用できるようにします。
+  // `antialiased` はテキストのアンチエイリアスを有効にするユーティリティクラスです。
   return (
-    <html lang="en">//
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}// フォントのCSS変数をクラスに追加して、全体で使用できるようにする。antialiasedはテキストのアンチエイリアスを有効にするクラス
-      >
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>

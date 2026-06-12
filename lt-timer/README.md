@@ -1,49 +1,96 @@
-# Real-time Synced Timer & Marquee Chat
+# LT Timer — リアルタイム同期タイマー + 弾幕チャット
 
-Next.js (App Router) で構築された、リアルタイム同期機能付きのタイマーおよび弾幕メッセージ（マーキー）表示アプリケーションです。
+Next.js (App Router) と WebSocket を用いた、LT（ライトニングトーク）向けのリアルタイム同期タイマーです。
+複数クライアント間でタイマー状態と弾幕メッセージを共有できます。プレゼンや勉強会、ハッカソンのタイムキーパーとして使いやすい設計です。
 
-## 概要
+## 使い方（簡易クイックスタート）
 
-このプロジェクトは、複数のブラウザ間でタイマーの状態（残り時間、開始、停止、リセット）を同期し、さらにニコニコ動画のような「右から左へ流れるメッセージ」をリアルタイムに共有できるツールです。
+依存をインストールして、WSサーバーとNext開発サーバーを起動します。
 
-プレゼンテーションのタイムキープ、イベントの進捗管理、または配信時のインタラクティブなツールとしての利用を想定しています。
+```powershell
+npm install
+npm run ws-server    # WebSocket / broadcast HTTP サーバー (ポート: 4001)
+npm run dev          # Next.js 開発サーバー (ポート: 3000)
+```
 
-## 主な機能
+ブラウザで `http://localhost:3000` を開くと LT Timer の UI が表示されます。
 
-- **高精度タイマー**:
-  - 指定した秒数からのカウントダウン。
-  - 残り時間に応じたプログレスバーと色の変化（緑 → 黄 → 赤）。
-  - タイムアップ時のアラート音通知。
-- **リアルタイム同期 (WebSocket)**:
-  - `WS_PORT: 4001` を介して、全クライアントのタイマー状態を一致させます。
-  - 誰かがスタート/ストップを押すと、全員の画面に反映されます。
-- **弾幕メッセージ機能**:
-  - 画面下部の入力欄からメッセージを送信。
-  - メッセージは全ユーザーの画面上をランダムな高さで右から左へ流れます。
-  - 自分の投稿（緑色）と他人の投稿（黄色）が視覚的に区別されます。
-- **モダンな UI/UX**:
-  - Tailwind CSS を使用したスタイリッシュなダークテーマ。
-  - ガラスモーフィズム（透過背景）を採用したコントロールパネル。
-  - 操作パネルの表示/非表示を切り替え可能。
+注意: `http://0.0.0.0:4001` を直接ブラウザで開いても通常の HTML は返りません。WSサーバーは WebSocket 接続と `/broadcast` の POST を受け付ける API サーバーです。
 
-## 技術構成
+## 環境変数
 
-- **Frontend**: Next.js 13+ (App Router), TypeScript
-- **Styling**: Tailwind CSS
-- **Real-time**: WebSocket (ブラウザ標準 API)
-- **Animation**: CSS Keyframes
-
-## セットアップ
-
-### 1. WebSocket サーバーの準備
-
-このフロントエンドが接続するための WebSocket サーバーが必要です。サーバーはデフォルトで `4001` ポートを待ち受け、受信したメッセージを他の全クライアントにブロードキャスト（転送）するように設定してください。
-
-### 2. 環境変数の設定 (任意)
-
-必要に応じて `.env.local` ファイルを作成し、接続先サーバーを指定できます。
+ローカルで別ホストにWSサーバーを立てる場合:
 
 ```env
-NEXT_PUBLIC_WS_URL=ws://your-websocket-server:4001
+NEXT_PUBLIC_WS_URL=ws://your-websocket-server-address:4001
+NEXT_PUBLIC_BROADCAST_URL=http://your-websocket-server-address:4001/broadcast
+```
 
+## 改善したプロジェクト構成
 
+関心ごと (routing / domain / presentation) を分離する構成にしています。主要ファイルは以下のとおりです。
+
+```text
+.
+├── app/                          # Next App Router のルート (画面エントリ)
+│   ├── globals.css               # グローバルスタイル（弾幕アニメーション含む）
+│   ├── layout.tsx                # ルートレイアウト（フォントなど）
+│   └── page.tsx                  # エントリーポイント（TimerClient をマウント）
+├── app/features/timer/           # タイマー機能に関するコードを集約
+│   ├── TimerClient.tsx           # 機能の親コンポーネント（フックを合成、UIを組み立て）
+│   ├── components/               # 表示用の小さなコンポーネント群
+│   │   ├── TimerDisplay.tsx      # メインの時計表示
+│   │   ├── Controls.tsx          # 設定パネル / 操作ボタン / チャットフォーム
+│   │   └── Overlay.tsx           # 弾幕（Marquee）表示レイヤー
+│   └── hooks/                    # ドメインロジック（UIから独立）
+│       ├── useTimer.tsx          # カウントダウンとオーディオ通知
+│       └── useChat.tsx           # WebSocket / broadcast の管理
+└── server/
+    └── ws-server.js              # シンプルな WebSocket + POST ブロードキャストサーバー
+```
+
+この構成により「ある機能に関するコード」を1フォルダ内で追えるため、将来的な拡張やテストがしやすくなっています。
+
+## よくある確認ポイント / トラブルシュート
+
+- ブラウザで何も表示されない: `npm run dev` が起動しているか確認し、`http://localhost:3000` を開いてください。
+- WS 接続がつながらない: `npm run ws-server` を実行して `HTTP/WebSocket server listening on http://0.0.0.0:4001` が出ているか確認してください。コンソールで `curl -X POST http://localhost:4001/broadcast -H "Content-Type: application/json" -d '{"text":"hello"}'` を試すと簡易テストできます。
+- ハイドレーションエラー: JSX に意図しないテキストノード（例: `//`）が混入しているとエラーになります。`app/layout.tsx` にあった余計な `//` を今回削除しています。
+
+## 追加でやること（提案）
+
+- `Controls` と `Overlay` をさらに小さなテスト可能なユニットに分割し、ユニットテストを追加する。 
+- CI ワークフロー（lint / typecheck / test）を追加する。
+
+----
+
+不明点やこの構成でさらに分割したい箇所があれば教えてください。README の追加修正や、さらに細かいコンポーネント分割も行います。
+
+## スクリーンショット
+
+実際の UI イメージ（プレースホルダ）:
+
+![Timer UI](/screenshots/timer-ui.svg)
+
+![Controls & Overlay](/screenshots/controls-overlay.svg)
+
+> 画像は `public/screenshots/` に置いています。実機のスクリーンショットを撮って差し替えてください。
+
+## 使い方の例
+
+- WebSocket コンソールでの簡易テスト（ブラウザの開発者ツールで実行）:
+
+```javascript
+// ブラウザのコンソールで実行
+const ws = new WebSocket('ws://localhost:4001');
+ws.onmessage = (e) => console.log('recv', e.data);
+ws.onopen = () => ws.send(JSON.stringify({ text: 'こんにちは' }));
+```
+
+- サーバーの `/broadcast` に対して curl でテスト送信:
+
+```bash
+curl -X POST http://localhost:4001/broadcast -H "Content-Type: application/json" -d '{"text":"hello from curl"}'
+```
+
+上記は動作確認に便利な「最小限の例」です。スクリーンショットを差し替えたい場合、`public/screenshots/` に新しい画像を置き、READMEのパスをそのまま使ってください。
