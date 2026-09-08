@@ -1,96 +1,150 @@
-# LT Timer — リアルタイム同期タイマー + 弾幕チャット
+# LT Timer
 
-Next.js (App Router) と WebSocket を用いた、LT（ライトニングトーク）向けのリアルタイム同期タイマーです。
-複数クライアント間でタイマー状態と弾幕メッセージを共有できます。プレゼンや勉強会、ハッカソンのタイムキーパーとして使いやすい設計です。
+LT（Lightning Talk）向けのタイマーアプリです。発表用のカウントダウン、設定パネル、弾幕コメント送信をひとつの画面で扱えます。
 
-## 使い方（簡易クイックスタート）
+現在の実装は Next.js + React のフロントエンドと、WebSocket / HTTP broadcast を扱う Node.js サーバーの組み合わせです。
 
-依存をインストールして、WSサーバーとNext開発サーバーを起動します。
+## 主な機能
 
-```powershell
+- 発表用タイマーの開始 / 一時停止 / リセット
+- 30秒、60秒、300秒などのプリセット設定
+- 任意秒数のカスタム入力
+- 10秒以下と 60秒以下で視認性を高める警告表示
+- 発表者画面と観客画面の分離
+- WebSocket による弾幕コメント送信と再接続対応
+- 送信先の外部 HTTP endpoint への POST fallback
+
+## 画面構成
+
+- ルート: 発表者向けタイマー画面
+- /audience: 観客向けコメント送信画面
+
+ブラウザで次のように開きます。
+
+- 発表者画面: http://localhost:3000
+- 観客画面: http://localhost:3000/audience
+
+## 必要環境
+
+- Node.js 20 以上を推奨
+- npm
+
+## クイックスタート
+
+依存関係をインストールして、WebSocket サーバーと Next.js 開発サーバーを起動します。
+
+```bash
 npm install
-npm run ws-server    # WebSocket / broadcast HTTP サーバー (ポート: 4001)
-npm run dev          # Next.js 開発サーバー (ポート: 3000)
+npm run ws-server
+npm run dev
 ```
 
-ブラウザで `http://localhost:3000` を開くと LT Timer の UI が表示されます。
+その後、ブラウザで http://localhost:3000 を開いてください。
 
-注意: `http://0.0.0.0:4001` を直接ブラウザで開いても通常の HTML は返りません。WSサーバーは WebSocket 接続と `/broadcast` の POST を受け付ける API サーバーです。
+> 注: WebSocket サーバーは 4001 番ポートで起動します。コメント送信や弾幕表示を利用するには、このサーバーが必須です。
 
 ## 環境変数
 
-ローカルで別ホストにWSサーバーを立てる場合:
+ローカル環境で別ホストの WebSocket サーバーを使う場合は、次の環境変数を設定できます。
 
 ```env
-NEXT_PUBLIC_WS_URL=ws://your-websocket-server-address:4001
-NEXT_PUBLIC_BROADCAST_URL=http://your-websocket-server-address:4001/broadcast
+NEXT_PUBLIC_WS_URL=ws://localhost:4001
+NEXT_PUBLIC_BROADCAST_URL=http://localhost:4001/broadcast
 ```
 
-## 改善したプロジェクト構成
+変数を設定しない場合は、ブラウザ側が自動で localhost の 4001 番ポートを使用します。
 
-関心ごと (routing / domain / presentation) を分離する構成にしています。主要ファイルは以下のとおりです。
+## プロジェクト構成
 
 ```text
 .
-├── app/                          # Next App Router のルート (画面エントリ)
-│   ├── globals.css               # グローバルスタイル（弾幕アニメーション含む）
-│   ├── layout.tsx                # ルートレイアウト（フォントなど）
-│   └── page.tsx                  # エントリーポイント（TimerClient をマウント）
-├── app/features/timer/           # タイマー機能に関するコードを集約
-│   ├── TimerClient.tsx           # 機能の親コンポーネント（フックを合成、UIを組み立て）
-│   ├── components/               # 表示用の小さなコンポーネント群
-│   │   ├── TimerDisplay.tsx      # メインの時計表示
-│   │   ├── Controls.tsx          # 設定パネル / 操作ボタン / チャットフォーム
-│   │   └── Overlay.tsx           # 弾幕（Marquee）表示レイヤー
-│   └── hooks/                    # ドメインロジック（UIから独立）
-│       ├── useTimer.tsx          # カウントダウンとオーディオ通知
-│       └── useChat.tsx           # WebSocket / broadcast の管理
-└── server/
-    └── ws-server.js              # シンプルな WebSocket + POST ブロードキャストサーバー
+├── app/
+│   ├── audience/
+│   │   └── page.tsx              # 観客用コメント送信画面
+│   ├── features/
+│   │   └── timer/
+│   │       ├── TimerClient.tsx    # タイマー画面の親コンポーネント
+│   │       ├── components/
+│   │       │   ├── Controls.tsx   # 設定 / 操作 / コメント入力
+│   │       │   ├── Overlay.tsx    # 弾幕表示レイヤー
+│   │       │   └── TimerDisplay.tsx
+│   │       └── hooks/
+│   │           ├── useTimer.tsx   # タイマーの状態管理
+│   │           └── useChat.tsx    # WebSocket / POST broadcast 管理
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx                  # 発表者用メイン画面
+├── public/
+├── server/
+│   └── ws-server.js              # WebSocket + HTTP broadcast サーバー
+├── package.json
+├── next.config.ts
+├── tsconfig.json
+├── eslint.config.mjs
+├── postcss.config.mjs
+└── README.md
 ```
 
-この構成により「ある機能に関するコード」を1フォルダ内で追えるため、将来的な拡張やテストがしやすくなっています。
+## 動作の概要
 
-## よくある確認ポイント / トラブルシュート
+- フロントエンドは App Router ベースの Next.js アプリです。
+- 発表者側はタイマーと配置を制御し、コメントの流れを表示します。
+- 観客側は WebSocket に接続してコメントを送信し、画面に流れます。
+- WS サーバーは WebSocket 接続と POST /broadcast を受け取り、同一ネットワーク内のクライアントへメッセージを配信します。
 
-- ブラウザで何も表示されない: `npm run dev` が起動しているか確認し、`http://localhost:3000` を開いてください。
-- WS 接続がつながらない: `npm run ws-server` を実行して `HTTP/WebSocket server listening on http://0.0.0.0:4001` が出ているか確認してください。コンソールで `curl -X POST http://localhost:4001/broadcast -H "Content-Type: application/json" -d '{"text":"hello"}'` を試すと簡易テストできます。
-- ハイドレーションエラー: JSX に意図しないテキストノード（例: `//`）が混入しているとエラーになります。`app/layout.tsx` にあった余計な `//` を今回削除しています。
+> 実装上は「タイマーの長さ制御」と「弾幕コメントの配信」が主な役割であり、厳密な複数端末同期のタイマー制御までを主目的としているわけではありません。
 
-## 追加でやること（提案）
+## 開発時の確認方法
 
-- `Controls` と `Overlay` をさらに小さなテスト可能なユニットに分割し、ユニットテストを追加する。 
-- CI ワークフロー（lint / typecheck / test）を追加する。
-
-----
-
-不明点やこの構成でさらに分割したい箇所があれば教えてください。README の追加修正や、さらに細かいコンポーネント分割も行います。
-
-## スクリーンショット
-
-実際の UI イメージ（プレースホルダ）:
-
-![Timer UI](/screenshots/timer-ui.svg)
-
-![Controls & Overlay](/screenshots/controls-overlay.svg)
-
-> 画像は `public/screenshots/` に置いています。実機のスクリーンショットを撮って差し替えてください。
-
-## 使い方の例
-
-- WebSocket コンソールでの簡易テスト（ブラウザの開発者ツールで実行）:
-
-```javascript
-// ブラウザのコンソールで実行
-const ws = new WebSocket('ws://localhost:4001');
-ws.onmessage = (e) => console.log('recv', e.data);
-ws.onopen = () => ws.send(JSON.stringify({ text: 'こんにちは' }));
-```
-
-- サーバーの `/broadcast` に対して curl でテスト送信:
+### WebSocket サーバーの確認
 
 ```bash
-curl -X POST http://localhost:4001/broadcast -H "Content-Type: application/json" -d '{"text":"hello from curl"}'
+npm run ws-server
 ```
 
-上記は動作確認に便利な「最小限の例」です。スクリーンショットを差し替えたい場合、`public/screenshots/` に新しい画像を置き、READMEのパスをそのまま使ってください。
+起動時に以下のようなログが出れば OK です。
+
+```text
+HTTP/WebSocket server listening on http://0.0.0.0:4001
+```
+
+### 投稿テスト
+
+```bash
+curl -X POST http://localhost:4001/broadcast \
+  -H "Content-Type: application/json" \
+  -d '{"text":"hello from curl"}'
+```
+
+### ブラウザ側の簡易確認
+
+ブラウザの開発者ツールで次を実行すると、WS サーバーへメッセージを送れます。
+
+```javascript
+const ws = new WebSocket('ws://localhost:4001');
+ws.onmessage = (event) => console.log(event.data);
+ws.onopen = () => ws.send(JSON.stringify({ text: 'テストメッセージ' }));
+```
+
+## トラブルシュート
+
+- コメントが流れない
+  - ws-server が起動しているか確認してください。
+  - 4001 番ポートが使用可能か確認してください。
+
+- ページが表示されない
+  - npm run dev の実行状態を確認してください。
+  - http://localhost:3000 でアクセスできているか確認してください。
+
+- 観客側から送信できない
+  - NEXT_PUBLIC_WS_URL / NEXT_PUBLIC_BROADCAST_URL が適切か確認してください。
+
+## 今後の改善候補
+
+- タイマー状態の複数端末同期を本格実装する
+- コメントの送信履歴や管理画面を追加する
+- E2E テストや lint / typecheck の CI を整備する
+
+## ライセンス
+
+このプロジェクトのライセンスは未設定です。必要に応じて package.json や LICENSE の追加を行ってください。
